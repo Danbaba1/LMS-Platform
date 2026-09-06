@@ -1,7 +1,5 @@
 import { jest } from '@jest/globals';
 
-let consoleErrorSpy;
-
 const getStudents = jest.fn();
 const getStudentById = jest.fn();
 const createStudent = jest.fn();
@@ -9,13 +7,7 @@ const updateStudent = jest.fn();
 const deleteStudent = jest.fn();
 
 beforeEach(() => {
-    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => { });
-
     jest.clearAllMocks();
-});
-
-afterEach(() => {
-    consoleErrorSpy.mockRestore();
 });
 
 jest.unstable_mockModule('../services/app.service.js', () => ({
