@@ -1,186 +1,123 @@
 import { StudentService } from "../services/app.service.js";
+import { CustomError } from '../errors/customError.js';
 
 export class StudentController {
     constructor(studentService = new StudentService()) {
         this.studentService = studentService;
     }
 
-    async getStudents(req, res) {
-        try {
-            const students = await this.studentService.getStudents();
-
-            return res.status(200).json({
-                message: "Students returned successfully",
-                students
-            });
-        } catch (error) {
-            console.error(error);
-
-            return res.status(500).json({
-                message: "Failed to fetch students"
-            });
+    asyncHandler(fn) {
+        return (req, res, next) => {
+            fn.call(this, req, res).catch((error) => next(error));
         }
+    }
+
+    async getStudents(req, res) {
+        const students = await this.studentService.getStudents();
+
+        return res.status(200).json({
+            message: "Students returned successfully",
+            students
+        });
     }
 
     async getStudentById(req, res) {
-        try {
-            const { id } = req.params;
+        const { id } = req.params;
 
-            if (Number.isNaN(Number(id))) {
-                return res.status(400).json({
-                    message: "Invalid ID"
-                });
-            }
-
-            const student = await this.studentService.getStudentById(id);
-
-            if (student === undefined) {
-                return res.status(404).json({
-                    message: "Student not found"
-                });
-            }
-
-            return res.status(200).json({
-                message: "Student returned successfully",
-                student
-            });
-        } catch (error) {
-            console.error(error);
-
-            return res.status(500).json({
-                message: "Failed to fetch student"
-            });
+        if (Number.isNaN(Number(id))) {
+            throw new CustomError('Invalid ID', 400);
         }
+
+        const student = await this.studentService.getStudentById(id);
+
+        if (student === undefined) {
+            throw new CustomError('Student not found', 404);
+        }
+
+        return res.status(200).json({
+            message: "Student returned successfully",
+            student
+        });
     }
 
     async createStudent(req, res) {
-        try {
-            const { name, course } = req.body;
+        const { name, course } = req.body;
 
-            if (!name || !course) {
-                return res.status(400).json({
-                    message: "Please complete the fields"
-                });
-            }
-
-            if (name !== name.trim() || course !== course.trim()) {
-                return res.status(400).json({
-                    message: "Please complete the fields"
-                });
-            }
-
-            if (!(/^[a-zA-Z'-]+(\s[a-zA-Z'-]+)*$/.test(name))) {
-                return res.status(400).json({
-                    message: "Bad request"
-                });
-            }
-
-            const student = await this.studentService.createStudent(name, course);
-            return res.status(201).json({
-                message: "Student created successfully",
-                student
-            });
-        } catch (error) {
-            console.error(error);
-
-            return res.status(500).json({
-                message: "Failed to create student"
-            });
+        if (!name || !course) {
+            throw new CustomError('Please complete the fields', 400);
         }
+
+        if (name !== name.trim() || course !== course.trim()) {
+            throw new CustomError('Please complete the fields', 400)
+        }
+
+        if (!(/^[a-zA-Z'-]+(\s[a-zA-Z'-]+)*$/.test(name))) {
+            throw new CustomError('Bad request', 400);
+        }
+
+        const student = await this.studentService.createStudent(name, course);
+        return res.status(201).json({
+            message: "Student created successfully",
+            student
+        });
     }
 
     async updateStudent(req, res) {
-        try {
-            const { id } = req.params;
-            const studentData = req.body;
+        const { id } = req.params;
+        const studentData = req.body;
 
-            if (Number.isNaN(Number(id))) {
-                return res.status(400).json({
-                    message: "Invalid ID"
-                });
-            }
-
-            if (studentData === undefined) {
-                return res.status(400).json({
-                    message: "Bad request"
-                });
-            }
-
-            if (Object.keys(studentData).length === 0) {
-                return res.status(400).json({
-                    message: "Bad request"
-                });
-            }
-
-            if (studentData.name !== studentData.name?.trim() || studentData.course !== studentData.course?.trim()) {
-                return res.status(400).json({
-                    message: "Bad request"
-                });
-            }
-
-            if (studentData.name === "" || studentData.course === "") {
-                return res.status(400).json({
-                    message: "Bad request"
-                });
-            }
-
-            if (studentData.name !== undefined && !/^[a-zA-Z'-]+(\s[a-zA-Z'-]+)*$/.test(studentData.name)) {
-                return res.status(400).json({
-                    message: "Bad request"
-                });
-            }
-
-            const updatedStudent = await this.studentService.updateStudent(studentData, id);
-
-            if (!updatedStudent) {
-                return res.status(404).json({
-                    message: "Student not found"
-                });
-            }
-
-            return res.status(200).json({
-                message: "Student updated successfully",
-                updatedStudent
-            });
-
-        } catch (error) {
-            console.error(error);
-
-            return res.status(500).json({
-                message: "Failed to update student"
-            });
+        if (Number.isNaN(Number(id))) {
+            throw new CustomError('Invalid ID', 400);
         }
+
+        if (studentData === undefined) {
+            throw new CustomError('Bad request', 400);
+        }
+
+        if (Object.keys(studentData).length === 0) {
+            throw new CustomError('Bad request', 400);
+        }
+
+        if (studentData.name !== studentData.name?.trim() || studentData.course !== studentData.course?.trim()) {
+            throw new CustomError('Bad request', 400);
+        }
+
+        if (studentData.name === "" || studentData.course === "") {
+            throw new CustomError('Bad request', 400);
+        }
+
+        if (studentData.name !== undefined && !/^[a-zA-Z'-]+(\s[a-zA-Z'-]+)*$/.test(studentData.name)) {
+            throw new CustomError('Bad request', 400);
+        }
+
+        const updatedStudent = await this.studentService.updateStudent(studentData, id);
+
+        if (!updatedStudent) {
+            throw new CustomError('Student not found', 404);
+        }
+
+        return res.status(200).json({
+            message: "Student updated successfully",
+            updatedStudent
+        });
     }
 
     async deleteStudent(req, res) {
-        try {
-            const { id } = req.params;
+        const { id } = req.params;
 
-            if (Number.isNaN(Number(id))) {
-                return res.status(400).json({
-                    message: "Invalid ID"
-                });
-            }
-
-            const student = await this.studentService.deleteStudent(id);
-
-            if (student === undefined) {
-                return res.status(404).json({
-                    message: "Student not found"
-                });
-            }
-
-            return res.status(200).json({
-                message: "Student deleted successfully",
-                student
-            });
-
-        } catch (error) {
-            console.error(error);
-
-            return res.status(500).json({
-                message: "Failed to delete student"
-            });
+        if (Number.isNaN(Number(id))) {
+            throw new CustomError('Invalid ID', 400);
         }
+
+        const student = await this.studentService.deleteStudent(id);
+
+        if (student === undefined) {
+            throw new CustomError('Student not found', 404);
+        }
+
+        return res.status(200).json({
+            message: "Student deleted successfully",
+            student
+        });
     }
 }

@@ -4,11 +4,11 @@ import express from 'express';
 export function createRouter(studentController = new StudentController()) {
     const router = express.Router();
 
-    router.get('/', studentController.getStudents.bind(studentController));
-    router.get('/:id', studentController.getStudentById.bind(studentController));
-    router.post('/', studentController.createStudent.bind(studentController));
-    router.patch('/:id', studentController.updateStudent.bind(studentController));
-    router.delete('/:id', studentController.deleteStudent.bind(studentController));
+    router.get('/', studentController.asyncHandler(studentController.getStudents));
+    router.get('/:id', studentController.asyncHandler(studentController.getStudentById));
+    router.post('/', studentController.asyncHandler(studentController.createStudent));
+    router.patch('/:id', studentController.asyncHandler(studentController.updateStudent));
+    router.delete('/:id', studentController.asyncHandler(studentController.deleteStudent));
 
     return router;
 }

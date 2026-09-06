@@ -3,6 +3,7 @@ import { StudentService } from '../services/app.service.js';
 import { StudentController } from '../controllers/app.controller.js';
 import { createRouter } from '../routes/app.route.js';
 import { createApp } from '../app.js';
+import { jest } from '@jest/globals';
 
 let studentService;
 let app;
@@ -24,6 +25,17 @@ describe('Students API Endpoints', () => {
             expect(response.body.message).toBe('Students returned successfully');
             expect(response.body.students[0].name).toBe('Daniel');
         });
+
+        it('should return 500 for non-operational error', async () => {
+            jest.spyOn(studentService, 'getStudents').mockRejectedValue(new Error('Db connection failed'));
+
+            const response = await request(app)
+                .get('/students');
+
+            expect(response.status).toBe(500);
+
+            expect(response.body.message).toBe('Server error');
+        });
     });
 
     describe('POST /students', () => {
@@ -33,6 +45,33 @@ describe('Students API Endpoints', () => {
                 .send({ name: 'Michael', course: 'History' });
 
             expect(response.status).toBe(201);
+        });
+
+        it('should return 400 when missing either name or course', async () => {
+            const response = await request(app)
+                .post('/students').send({ name: 'John' });
+
+            expect(response.status).toBe(400);
+
+            expect(response.body.message).toBe('Please complete the fields');
+        });
+
+        it('should return 400 when there is a leading whitespace', async () => {
+            const response = await request(app)
+                .post('/students').send({ name: ' John', course: 'Physics' });
+
+            expect(response.status).toBe(400);
+
+            expect(response.body.message).toBe('Please complete the fields');
+        });
+
+        it('should return 400 when there is an invalid name', async () => {
+            const response = await request(app)
+                .post('/students').send({ name: 'John3', course: 'Physics' });
+
+            expect(response.status).toBe(400);
+
+            expect(response.body.message).toBe('Bad request');
         });
     });
 
@@ -70,6 +109,72 @@ describe('Students API Endpoints', () => {
 
             expect(response.body.message).toBe('Student not found');
         });
+
+        it('should return 400 for invalid ID', async () => {
+            const id = 'abc';
+            const response = await request(app)
+                .patch(`/students/${id}`)
+                .send({ name: 'John' });
+
+            expect(response.status).toBe(400);
+
+            expect(response.body.message).toBe('Invalid ID');
+        });
+
+        it('should return 400 when there is no request body', async () => {
+            const id = 1;
+            const response = await request(app)
+                .patch(`/students/${id}`)
+                .send();
+
+            expect(response.status).toBe(400);
+
+            expect(response.body.message).toBe('Bad request');
+        });
+
+        it('should return 400 when there are no keys in the request body', async () => {
+            const id = 1;
+            const response = await request(app)
+                .patch(`/students/${id}`)
+                .send({});
+
+            expect(response.status).toBe(400);
+
+            expect(response.body.message).toBe('Bad request');
+        });
+
+        it('should return 400 when either field is an empty string', async () => {
+            const id = 1;
+            const response = await request(app)
+                .patch(`/students/${id}`)
+                .send({ name: '' });
+
+            expect(response.status).toBe(400);
+
+            expect(response.body.message).toBe('Bad request');
+        });
+
+        it('should return 400 when either field has a trailing space', async () => {
+            const id = 1;
+            const response = await request(app)
+                .patch(`/students/${id}`)
+                .send({ name: ' John' });
+
+            expect(response.status).toBe(400);
+
+            expect(response.body.message).toBe('Bad request');
+        });
+
+        it('should return 400 when name is invalid', async () => {
+            const id = 1;
+            const response = await request(app)
+                .patch(`/students/${id}`)
+                .send({ name: 'John3' });
+
+            expect(response.status).toBe(400);
+
+            expect(response.body.message).toBe('Bad request');
+        });
     });
 
     describe('DELETE /students', () => {
@@ -96,6 +201,16 @@ describe('Students API Endpoints', () => {
             expect(response.status).toBe(404);
 
             expect(response.body.message).toBe('Student not found');
+        });
+
+        it('should return 400 for invalid ID', async () => {
+            const id = 'abc';
+            const response = await request(app)
+                .delete(`/students/${id}`);
+
+            expect(response.status).toBe(400);
+
+            expect(response.body.message).toBe('Invalid ID');
         });
     });
 });
