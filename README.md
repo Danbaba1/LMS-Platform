@@ -129,7 +129,7 @@ Examples include:
 
 ### Unexpected Errors
 
-Unexpected errors are errors that are not explicitly handled as operational errors. They are logged by the server and return a generic 500 Internal Server Error response.
+Unexpected errors are errors that are not explicitly handled as operational errors. They are logged by the server and return a generic `500 Internal Server Error` response.
 
 `Example:`
 
