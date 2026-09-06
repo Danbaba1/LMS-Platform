@@ -8,11 +8,19 @@ import { jest } from '@jest/globals';
 let studentService;
 let app;
 
+let consoleErrorSpy;
+
 beforeEach(() => {
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => { });
+
     studentService = new StudentService();
     const controller = new StudentController(studentService);
     const router = createRouter(controller);
     app = createApp(router);
+});
+
+afterEach(() => {
+    consoleErrorSpy.mockRestore();
 });
 
 describe('Students API Endpoints', () => {
