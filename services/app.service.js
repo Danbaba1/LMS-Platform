@@ -1,66 +1,36 @@
+import { pool } from '../db/db.js';
+
 export class StudentService {
-    constructor() {
-        this.students = [
-            {
-                id: 1,
-                name: "Daniel",
-                course: "Computer Science"
-            },
-            {
-                id: 2,
-                name: "Sarah",
-                course: "Engineering"
-            }
-        ];
+    constructor(dbPool = pool) {
+        this.pool = dbPool;
     }
 
     async getStudents() {
-        return this.students;
+        const result = await this.pool.query('SELECT * FROM student');
+
+        return result.rows;
     }
 
     async getStudentById(id) {
-        const student = this.students.find((student) => Number(id) === student.id);
-        return student;
+        const result = await this.pool.query('SELECT * FROM student WHERE id = $1', [id]);
+
+        return result.rows[0];
     }
 
     async createStudent(name, course) {
-        let id;
-        if (this.students.length !== 0) {
-            id = Math.max(...this.students.map((obj) => obj.id)) + 1;
-        } else {
-            id = 1;
-        }
+        const result = await this.pool.query('INSERT INTO student (name, course) VALUES ($1, $2) RETURNING *', [name, course]);
 
-
-        const student = { id, name, course };
-        this.students.push(student);
-        return student;
+        return result.rows[0];
     }
 
     async updateStudent(studentData, id) {
-        const student = await this.getStudentById(id);
-
-        if (!student) {
-            return undefined;
-        }
-
-        student.name = studentData.name ? studentData.name : student.name;
-        student.course = studentData.course ? studentData.course : student.course;
-
-        return student;
+        const result = await this.pool.query('UPDATE student SET name = COALESCE($1, name), course = COALESCE($2, course) WHERE id = $3 RETURNING *', [studentData.name, studentData.course, id]);
+        return result.rows[0];
     }
 
     async deleteStudent(id) {
-        const student = await this.getStudentById(id);
+        const result = await this.pool.query('DELETE FROM student WHERE id = $1 RETURNING *', [id]);
 
-        if (!student) {
-            return undefined;
-        }
-
-        const index = this.students.findIndex((student) => Number(id) === student.id);
-
-        const deletedStudents = this.students.splice(index, 1);
-
-        return deletedStudents[0];
+        return result.rows[0];
     }
 }
