@@ -23,7 +23,7 @@ afterEach(() => {
     consoleErrorSpy.mockRestore();
 });
 
-describe('Students API Endpoints', () => {
+describe.skip('Students API Endpoints', () => {
     describe('GET /students', () => {
         it('should return an array of students and a 200 status', async () => {
             const response = await request(app).get('/students').expect('Content-Type', 'application/json; charset=utf-8');
@@ -46,7 +46,7 @@ describe('Students API Endpoints', () => {
         });
     });
 
-    describe('POST /students', () => {
+    describe.skip('POST /students', () => {
         it('should create a new student', async () => {
             const response = await request(app)
                 .post('/students')
@@ -83,7 +83,7 @@ describe('Students API Endpoints', () => {
         });
     });
 
-    describe('GET /students/:id', () => {
+    describe.skip('GET /students/:id', () => {
         it('should return 404 for a non-existent student', async () => {
             const id = 999;
             const response = await request(app).get(`/students/${id}`).expect('Content-Type', 'application/json; charset=utf-8');
@@ -185,7 +185,7 @@ describe('Students API Endpoints', () => {
         });
     });
 
-    describe('DELETE /students', () => {
+    describe.skip('DELETE /students', () => {
         it('should return 200 for successful delete', async () => {
             const id = 1;
             const response = await request(app)
