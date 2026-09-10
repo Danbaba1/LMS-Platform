@@ -151,18 +151,57 @@ Unexpected errors are errors that are not explicitly handled as operational erro
 
 ## Testing
 
-- To run the tests: `npm test`
-- To run the test coverage: `npm test -- --coverage`
-  | Category | Statements | Branches | Functions | Lines |
-  |-------------|:----------:|:--------:|:---------:|:-----:|
-  | All files | 100% | 100% | 100% | 100% |
-  | controllers | 100% | 100% | 100% | 100% |
-  | services | 100% | 100% | 100% | 100% |
-  | routes | 100% | 100% | 100% | 100% |
-  | app | 100% | 100% | 100% | 100% |
-  | errors | 100% | 100% | 100% | 100% |
+The project uses Jest and SuperTest for automated testing.
 
-  | Metric      |        Result        |
-  | ----------- | :------------------: |
-  | Test Suites |  4 passed / 4 total  |
-  | Tests       | 64 passed / 64 total |
+The test suite covers:
+
+- Service logic
+- Controller behavior
+- API routes
+- Error handling
+- Factory functions
+- PostgreSQL database interactions through mocked queries for the unit tests
+- PostgreSQL database interactions through real database for the integration tests
+
+The database layer requires you do this:
+
+- Create the database : `CREATE DATABASE student_api_test;`
+- Create the student: `CREATE TABLE student (
+    id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    name VARCHAR(100) NOT NULL,
+    course VARCHAR(100) NOT NULL
+);`
+- Create a .env.test file:
+  ```bash
+  DB_HOST=
+  DB_PORT=
+  DB_NAME=student_api_test
+  DB_USER=
+  DB_PASSWORD=
+  ```
+
+Run the tests with:
+
+```bash
+ npm test
+```
+
+To run tests with coverage:
+
+```bash
+npm test -- --coverage
+```
+
+| Category    | Statements | Branches | Functions | Lines |
+| ----------- | :--------: | :------: | :-------: | :---: |
+| All files   |    100%    |   100%   |   100%    | 100%  |
+| controllers |    100%    |   100%   |   100%    | 100%  |
+| services    |    100%    |   100%   |   100%    | 100%  |
+| routes      |    100%    |   100%   |   100%    | 100%  |
+| app         |    100%    |   100%   |   100%    | 100%  |
+| errors      |    100%    |   100%   |   100%    | 100%  |
+
+| Metric      |        Result        |
+| ----------- | :------------------: |
+| Test Suites |  4 passed / 4 total  |
+| Tests       | 63 passed / 63 total |
