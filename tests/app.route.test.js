@@ -4,13 +4,17 @@ import { StudentController } from '../controllers/app.controller.js';
 import { createRouter } from '../routes/app.route.js';
 import { createApp } from '../app.js';
 import { jest } from '@jest/globals';
+import { pool } from '../db/db.js';
 
 let studentService;
 let app;
 
 let consoleErrorSpy;
 
-beforeEach(() => {
+beforeEach(async () => {
+    await pool.query("TRUNCATE TABLE student RESTART IDENTITY");
+
+    await pool.query("INSERT INTO student (name, course) VALUES ('Daniel', 'Computer Science'), ('Sarah', 'Engineering')");
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => { });
 
     studentService = new StudentService();
@@ -23,7 +27,10 @@ afterEach(() => {
     consoleErrorSpy.mockRestore();
 });
 
-describe.skip('Students API Endpoints', () => {
+afterAll(() => {
+    pool.end();
+});
+describe('Students API Endpoints', () => {
     describe('GET /students', () => {
         it('should return an array of students and a 200 status', async () => {
             const response = await request(app).get('/students').expect('Content-Type', 'application/json; charset=utf-8');
@@ -46,13 +53,16 @@ describe.skip('Students API Endpoints', () => {
         });
     });
 
-    describe.skip('POST /students', () => {
+    describe('POST /students', () => {
         it('should create a new student', async () => {
             const response = await request(app)
                 .post('/students')
                 .send({ name: 'Michael', course: 'History' });
 
             expect(response.status).toBe(201);
+
+            expect(response.body.message).toBe('Student created successfully');
+            expect(response.body.student.name).toBe('Michael');
         });
 
         it('should return 400 when missing either name or course', async () => {
@@ -83,7 +93,7 @@ describe.skip('Students API Endpoints', () => {
         });
     });
 
-    describe.skip('GET /students/:id', () => {
+    describe('GET /students/:id', () => {
         it('should return 404 for a non-existent student', async () => {
             const id = 999;
             const response = await request(app).get(`/students/${id}`).expect('Content-Type', 'application/json; charset=utf-8');
@@ -185,7 +195,7 @@ describe.skip('Students API Endpoints', () => {
         });
     });
 
-    describe.skip('DELETE /students', () => {
+    describe('DELETE /students', () => {
         it('should return 200 for successful delete', async () => {
             const id = 1;
             const response = await request(app)
