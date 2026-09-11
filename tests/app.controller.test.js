@@ -113,7 +113,10 @@ test('should return 404 when student does not exist', async () => {
 
     getStudentById.mockResolvedValue(undefined);
 
-    await expect(controller.getStudentById(req, res)).rejects.toThrow('Student not found');
+    await expect(controller.getStudentById(req, res)).rejects.toMatchObject({
+        message: 'Student not found',
+        status: 404
+    });
 });
 
 test('should return 400 when id is invalid', async () => {
@@ -126,7 +129,10 @@ test('should return 400 when id is invalid', async () => {
         }
     }
 
-    await expect(controller.getStudentById(req, res)).rejects.toThrow('Invalid ID');
+    await expect(controller.getStudentById(req, res)).rejects.toMatchObject({
+        message: 'Invalid ID',
+        status: 400
+    });
 });
 
 test('should return 500 when fetching student fails', async () => {
@@ -200,7 +206,10 @@ test('should return 400 when an incomplete field is provided', async () => {
         }
     }
 
-    await expect(controller.createStudent(req, res)).rejects.toThrow('Please complete the fields');
+    await expect(controller.createStudent(req, res)).rejects.toMatchObject({
+        message: 'Please complete the fields',
+        status: 400
+    });
 });
 
 test('should return 400 when there is a white-space', async () => {
@@ -214,7 +223,10 @@ test('should return 400 when there is a white-space', async () => {
         }
     }
 
-    await expect(controller.createStudent(req, res)).rejects.toThrow('Please complete the fields');
+    await expect(controller.createStudent(req, res)).rejects.toMatchObject({
+        message: 'Please complete the fields',
+        status: 400
+    });
 });
 
 test('should not include digits', async () => {
@@ -228,7 +240,10 @@ test('should not include digits', async () => {
         }
     }
 
-    await expect(controller.createStudent(req, res)).rejects.toThrow('Bad request');
+    await expect(controller.createStudent(req, res)).rejects.toMatchObject({
+        message: 'Bad request',
+        status: 400
+    });
 });
 
 test('should not include multiple whitespaces between words', async () => {
@@ -242,7 +257,10 @@ test('should not include multiple whitespaces between words', async () => {
         }
     }
 
-    await expect(controller.createStudent(req, res)).rejects.toThrow('Bad request');
+    await expect(controller.createStudent(req, res)).rejects.toMatchObject({
+        message: 'Bad request',
+        status: 400
+    });
 });
 
 test('should accept a single whitespace between two words', async () => {
@@ -355,7 +373,10 @@ test('should return 400 when the ID is invalid', async () => {
         }
     }
 
-    await expect(controller.updateStudent(req, res)).rejects.toThrow('Invalid ID');
+    await expect(controller.updateStudent(req, res)).rejects.toMatchObject({
+        message: 'Invalid ID',
+        status: 400
+    });
 });
 
 test('should return 400 when the request body is undefined', async () => {
@@ -368,7 +389,10 @@ test('should return 400 when the request body is undefined', async () => {
         }
     }
 
-    await expect(controller.updateStudent(req, res)).rejects.toThrow('Bad request');
+    await expect(controller.updateStudent(req, res)).rejects.toMatchObject({
+        message: 'Bad request',
+        status: 400
+    });
 });
 
 test('should return 400 when the request body object is empty', async () => {
@@ -384,7 +408,10 @@ test('should return 400 when the request body object is empty', async () => {
         }
     }
 
-    await expect(controller.updateStudent(req, res)).rejects.toThrow('Bad request');
+    await expect(controller.updateStudent(req, res)).rejects.toMatchObject({
+        message: 'Bad request',
+        status: 400
+    });
 });
 
 test('should return 400 when the name contains leading/trailing whitespace', async () => {
@@ -400,7 +427,10 @@ test('should return 400 when the name contains leading/trailing whitespace', asy
         }
     }
 
-    await expect(controller.updateStudent(req, res)).rejects.toThrow('Bad request');
+    await expect(controller.updateStudent(req, res)).rejects.toMatchObject({
+        message: 'Bad request',
+        status: 400
+    });
 });
 
 test('should return 400 when the course contains leading/trailing whitespace', async () => {
@@ -416,7 +446,10 @@ test('should return 400 when the course contains leading/trailing whitespace', a
         }
     }
 
-    await expect(controller.updateStudent(req, res)).rejects.toThrow('Bad request');
+    await expect(controller.updateStudent(req, res)).rejects.toMatchObject({
+        message: 'Bad request',
+        status: 400
+    });
 });
 
 test('should return 400 when the name is an empty string', async () => {
@@ -432,7 +465,10 @@ test('should return 400 when the name is an empty string', async () => {
         }
     }
 
-    await expect(controller.updateStudent(req, res)).rejects.toThrow('Bad request');
+    await expect(controller.updateStudent(req, res)).rejects.toMatchObject({
+        message: 'Bad request',
+        status: 400
+    });
 });
 
 test('should return 400 when the course contains is an empty string', async () => {
@@ -448,7 +484,10 @@ test('should return 400 when the course contains is an empty string', async () =
         }
     }
 
-    await expect(controller.updateStudent(req, res)).rejects.toThrow('Bad request');
+    await expect(controller.updateStudent(req, res)).rejects.toMatchObject({
+        message: 'Bad request',
+        status: 400
+    });
 });
 
 test('should return 404 when the service returns undefined', async () => {
@@ -466,7 +505,10 @@ test('should return 404 when the service returns undefined', async () => {
 
     updateStudent.mockResolvedValue(undefined);
 
-    await expect(controller.updateStudent(req, res)).rejects.toThrow('Student not found');
+    await expect(controller.updateStudent(req, res)).rejects.toMatchObject({
+        message: 'Student not found',
+        status: 404
+    });
 });
 
 test('should return 400 for invalid names', async () => {
@@ -482,7 +524,10 @@ test('should return 400 for invalid names', async () => {
         }
     }
 
-    await expect(controller.updateStudent(req, res)).rejects.toThrow('Bad request');
+    await expect(controller.updateStudent(req, res)).rejects.toMatchObject({
+        message: 'Bad request',
+        status: 400
+    });
 });
 
 test('should return 500 when updateStudent rejects', async () => {
@@ -533,7 +578,10 @@ test('should return 400 when deleting a student with an invalid ID', async () =>
         }
     }
 
-    await expect(controller.deleteStudent(req, res)).rejects.toThrow('Invalid ID');
+    await expect(controller.deleteStudent(req, res)).rejects.toMatchObject({
+        message: 'Invalid ID',
+        status: 400
+    });
 });
 
 test('should return 404 when deleting student with a non-existing ID', async () => {
@@ -548,7 +596,10 @@ test('should return 404 when deleting student with a non-existing ID', async () 
 
     deleteStudent.mockResolvedValue(undefined);
 
-    await expect(controller.deleteStudent(req, res)).rejects.toThrow('Student not found');
+    await expect(controller.deleteStudent(req, res)).rejects.toMatchObject({
+        message: 'Student not found',
+        status: 404
+    });
 });
 
 test('should return 200 when deleting a student with an existing ID', async () => {
