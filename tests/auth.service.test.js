@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import jwt from 'jsonwebtoken';
 
 jest.unstable_mockModule('bcrypt', () => ({
     default: {
@@ -140,7 +141,8 @@ describe('when login is successful, the service returns the student"s details', 
         expect(result).toEqual({
             "username": "Jack",
             "role": "student",
-            "status": "active"
+            "status": "active",
+            "token": expect.any(String)
         });
     });
 });
@@ -236,7 +238,8 @@ describe('when login is successful, the service returns the teacher"s details', 
         expect(result).toEqual({
             "email": 'jack@gmail.com',
             "role": "teacher",
-            "status": "active"
+            "status": "active",
+            "token": expect.any(String)
         });
     });
 });
@@ -333,13 +336,14 @@ describe('when login is successful, the service returns the admin"s details', ()
         expect(result).toEqual({
             "email": 'jack@gmail.com',
             "role": "admin",
-            "status": "active"
+            "status": "active",
+            "token": expect.any(String)
         });
     });
 });
 
-describe('return undefined when a admin"s email cannot be found', () => {
-    it('should return undefined for a admin"s email that cannot be found', async () => {
+describe('return undefined when an admin"s email cannot be found', () => {
+    it('should return undefined for an admin"s email that cannot be found', async () => {
         mockPool.query.mockResolvedValue({
             rows: [
 
@@ -401,5 +405,33 @@ describe('throw an error when admin uses wrong password', () => {
         expect(mockPool.query).toHaveBeenCalledTimes(1);
 
         expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE email = $1 and role = 'admin' and status = 'active'`, [email]);
+    });
+});
+
+describe('jwt contains userId and role', () => {
+    it('should contain userId and role', async () => {
+        mockPool.query.mockResolvedValue({
+            rows: [
+                {
+                    "id": 1,
+                    "email": 'jack@gmail.com',
+                    "password_hash": "JerrySanfield",
+                    "role": "admin"
+                }
+            ]
+        });
+
+        const password = 'terrycrews';
+        const email = 'jack@gmail.com';
+
+        bcrypt.compare.mockResolvedValue(true);
+
+        const result = await authService.loginAdmin(email, password);
+
+        const decoded = jwt.decode(result.token);
+
+        expect(decoded.userId).toEqual(1);
+
+        expect(decoded.role).toEqual("admin");
     });
 });

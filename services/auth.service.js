@@ -1,5 +1,8 @@
 import { pool } from '../db/db.js';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+dotenv.config();
 
 export class AuthService {
     constructor(dbPool = pool) {
@@ -30,10 +33,18 @@ export class AuthService {
         const result = await bcrypt.compare(password, user.rows[0].password_hash);
 
         if (result) {
+            const token = jwt.sign(
+                {
+                    userId: user.rows[0].id, role: user.rows[0].role
+                },
+                process.env.JWT_SECRET,
+                { expiresIn: process.env.JWT_EXPIRY_TIME }
+            );
             return {
                 username: user.rows[0].username,
                 role: user.rows[0].role,
-                status: user.rows[0].status
+                status: user.rows[0].status,
+                token
             }
         } else {
             throw new Error('Invalid credentials');
@@ -52,10 +63,18 @@ export class AuthService {
         if (!result) {
             throw new Error('Invalid credentials');
         } else {
+            const token = jwt.sign(
+                {
+                    userId: user.rows[0].id, role: user.rows[0].role
+                },
+                process.env.JWT_SECRET,
+                { expiresIn: process.env.JWT_EXPIRY_TIME }
+            );
             return {
                 email: user.rows[0].email,
                 role: user.rows[0].role,
-                status: user.rows[0].status
+                status: user.rows[0].status,
+                token
             }
         }
     }
@@ -72,10 +91,18 @@ export class AuthService {
         if (!result) {
             throw new Error('Invalid credentials');
         } else {
+            const token = jwt.sign(
+                {
+                    userId: user.rows[0].id, role: user.rows[0].role
+                },
+                process.env.JWT_SECRET,
+                { expiresIn: process.env.JWT_EXPIRY_TIME }
+            );
             return {
                 email: user.rows[0].email,
                 role: user.rows[0].role,
-                status: user.rows[0].status
+                status: user.rows[0].status,
+                token
             }
         }
     }
