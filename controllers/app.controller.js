@@ -41,13 +41,13 @@ export class StudentController {
     }
 
     async createStudent(req, res) {
-        const { name, course } = req.body;
+        const { name } = req.body;
 
-        if (!name || !course) {
+        if (!name) {
             throw new CustomError('Please complete the fields', 400);
         }
 
-        if (name !== name.trim() || course !== course.trim()) {
+        if (name !== name.trim()) {
             throw new CustomError('Please complete the fields', 400)
         }
 
@@ -55,7 +55,7 @@ export class StudentController {
             throw new CustomError('Bad request', 400);
         }
 
-        const student = await this.studentService.createStudent(name, course);
+        const student = await this.studentService.createStudent(name);
         return res.status(201).json({
             message: "Student created successfully",
             student

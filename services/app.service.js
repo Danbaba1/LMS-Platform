@@ -17,8 +17,8 @@ export class StudentService {
         return result.rows[0];
     }
 
-    async createStudent(name, course) {
-        const result = await this.pool.query('INSERT INTO student (name, course) VALUES ($1, $2) RETURNING *', [name, course]);
+    async createStudent(name) {
+        const result = await this.pool.query('INSERT INTO student (name) VALUES ($1) RETURNING *', [name]);
 
         return result.rows[0];
     }
