@@ -1,8 +1,10 @@
 import { pool } from '../db/db.js';
+import { AuthService } from './auth.service.js';
 
 export class StudentService {
-    constructor(dbPool = pool) {
+    constructor(dbPool = pool, authService = new AuthService(dbPool)) {
         this.pool = dbPool;
+        this.authService = authService;
     }
 
     async getStudents() {
@@ -17,14 +19,30 @@ export class StudentService {
         return result.rows[0];
     }
 
-    async createStudent(name) {
-        const result = await this.pool.query('INSERT INTO student (name) VALUES ($1) RETURNING *', [name]);
+    async createStudent(name, username, email, password) {
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
 
-        return result.rows[0];
+            const newUser = await this.authService.registerStudentTx({ username, email, password, client });
+
+            const newStudent = await client.query(
+                'INSERT INTO student (name, user_id) VALUES ($1, $2) RETURNING *',
+                [name, newUser.id]
+            );
+
+            await client.query('COMMIT');
+            return newStudent.rows[0];
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
     }
 
-    async updateStudent(studentData, id) {
-        const result = await this.pool.query('UPDATE student SET name = COALESCE($1, name), course = COALESCE($2, course) WHERE id = $3 RETURNING *', [studentData.name, studentData.course, id]);
+    async updateStudent(name, id) {
+        const result = await this.pool.query('UPDATE student SET name = $1 WHERE id = $2 RETURNING *', [name, id]);
         return result.rows[0];
     }
 

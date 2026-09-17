@@ -42,10 +42,10 @@ describe('When registration succeeds, the service returns the newly created stud
         const username = 'Jack';
         const email = 'jack@gmail.com';
 
-        const result = await authService.registerStudent(username, email, password);
+        const result = await authService.registerStudent({ username, email, password });
 
         expect(mockPool.query).toHaveBeenCalledWith(
-            'INSERT INTO "user" (username, email, password_hash, role, status) VALUES ($1, $2, $3, $4, $5) RETURNING username, email, role, status',
+            'INSERT INTO "user" (username, email, password_hash, role, status) VALUES ($1, $2, $3, $4, $5) RETURNING id',
             [username, email, 'mocked_hashed_password', 'student', 'active']
         );
 
@@ -63,13 +63,18 @@ describe('When registration succeeds, the service returns the newly created stud
 
 describe('throw an error when a student tries to register with a username that already exists', () => {
     it('should throw an error when a student registers with a username that already exists', async () => {
-        mockPool.query.mockRejectedValue(new Error('Duplicate username not allowed'));
+        const error = new Error('Duplicate email not allowed');
+        error.code = '23505';
+        mockPool.query.mockRejectedValue(error);
 
         const password = 'teddycrews';
         const username = 'Jack';
         const email = 'jason@gmail.com';
 
-        expect(authService.registerStudent(username, email, password)).rejects.toThrow('Duplicate username not allowed');
+        expect(authService.registerStudent({ username, email, password })).rejects.toMatchObject({
+            message: 'Email or username already in use',
+            status: 409
+        });
     });
 });
 
@@ -89,11 +94,11 @@ describe('When registration succeeds, the service returns the newly created teac
         const password = 'terrycrews';
         const email = 'jack@gmail.com';
 
-        const result = await authService.registerTeacher(email, password);
+        const result = await authService.registerTeacher({ email, password });
 
         expect(mockPool.query).toHaveBeenCalledWith(
-            'INSERT INTO "user" (email, password_hash, role, status) VALUES ($1, $2, $3, $4) RETURNING email, role, status',
-            [email, 'mocked_hashed_password', 'teacher', 'active']
+            'INSERT INTO "user" (username, email, password_hash, role, status) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+            [null, email, 'mocked_hashed_password', 'teacher', 'active']
         );
 
         expect(bcrypt.hash).toHaveBeenCalledWith(password, 10);
@@ -109,12 +114,17 @@ describe('When registration succeeds, the service returns the newly created teac
 
 describe('throw an error when a teacher tries to register with an email that already exists', () => {
     it('should throw an error when a teacher registers with an email that already exists', async () => {
-        mockPool.query.mockRejectedValue(new Error('Duplicate email not allowed'));
+        const error = new Error('Duplicate email not allowed');
+        error.code = '23505';
+        mockPool.query.mockRejectedValue(error);
 
         const password = 'teddycrews';
         const email = 'jason@gmail.com';
 
-        expect(authService.registerTeacher(email, password)).rejects.toThrow('Duplicate email not allowed');
+        expect(authService.registerTeacher({ email, password })).rejects.toMatchObject({
+            message: 'Email or username already in use',
+            status: 409
+        });
     });
 });
 
@@ -132,9 +142,8 @@ describe('when login is successful, the service returns the student"s details', 
         });
 
         const password = 'terrycrews';
-        const username = 'Jack';
 
-        const result = await authService.loginStudent(username, password);
+        const result = await authService.login('student', 'Jack', password);
 
         expect(bcrypt.compare).toHaveBeenCalledWith(password, "mocked_hashed_password");
 
@@ -147,8 +156,8 @@ describe('when login is successful, the service returns the student"s details', 
     });
 });
 
-describe('return undefined when a student"s username cannot be found', () => {
-    it('should return undefined for a student"s username that cannot be found', async () => {
+describe("throw invalid credentials when a student's username cannot be found or student is inactive", () => {
+    it("should throw invalid credentials when a student's username cannot be found or student is inactive", async () => {
         mockPool.query.mockResolvedValue({
             rows: [
 
@@ -156,41 +165,24 @@ describe('return undefined when a student"s username cannot be found', () => {
         });
 
         const password = 'terrycrews';
-        const username = 'Jack';
+        const identifier = 'Jack';
+        const role = 'student';
+        const column = 'username';
 
-        const result = await authService.loginStudent(username, password);
-
-        expect(result).toBeUndefined();
-
-        expect(mockPool.query).toHaveBeenCalledTimes(1);
-
-        expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE username = $1 and role = 'student' and status = 'active'`, [username]);
-    });
-});
-
-describe('return undefined when a student is inactive', () => {
-    it('should return undefined for a student that is inactive', async () => {
-        mockPool.query.mockResolvedValue({
-            rows: [
-
-            ]
+        await expect(authService.login(role, identifier, password)).rejects.toMatchObject({
+            message: "Invalid credentials",
+            status: 401
         });
 
-        const password = 'terrycrews';
-        const username = 'Jack';
-
-        const result = await authService.loginStudent(username, password);
-
-        expect(result).toBeUndefined();
-
         expect(mockPool.query).toHaveBeenCalledTimes(1);
 
-        expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE username = $1 and role = 'student' and status = 'active'`, [username]);
+        expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE ${column} = $1 AND role = $2 AND status = 'active'`,
+            [identifier, role]);
     });
 });
 
-describe('throw an error when student uses wrong password', () => {
-    it('should throw an error when a student uses wrong password', async () => {
+describe("throw invalid credentials when a student uses the wrong password", () => {
+    it("should throw invalid credentials when a student uses the wrong password", async () => {
         mockPool.query.mockResolvedValue({
             rows: [
                 {
@@ -201,15 +193,18 @@ describe('throw an error when student uses wrong password', () => {
         });
 
         const password = 'terrycrews';
-        const username = 'Jack';
+        const identifier = 'Jack';
+        const role = 'student';
+        const column = 'username';
 
         bcrypt.compare.mockResolvedValue(false);
 
-        await expect(authService.loginStudent(username, password)).rejects.toThrow('Invalid credentials');
+        await expect(authService.login('student', 'Jack', password)).rejects.toThrow('Invalid credentials');
 
         expect(mockPool.query).toHaveBeenCalledTimes(1);
 
-        expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE username = $1 and role = 'student' and status = 'active'`, [username]);
+        expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE ${column} = $1 AND role = $2 AND status = 'active'`,
+            [identifier, role]);
     });
 });
 
@@ -227,11 +222,10 @@ describe('when login is successful, the service returns the teacher"s details', 
         });
 
         const password = 'terrycrews';
-        const email = 'jack@gmail.com';
 
         bcrypt.compare.mockResolvedValue(true);
 
-        const result = await authService.loginTeacher(email, password);
+        const result = await authService.login('teacher', 'jack@gmail.com', password);
 
         expect(bcrypt.compare).toHaveBeenCalledWith(password, "mocked_hashed_password");
 
@@ -244,8 +238,8 @@ describe('when login is successful, the service returns the teacher"s details', 
     });
 });
 
-describe('return undefined when a teacher"s email cannot be found', () => {
-    it('should return undefined for a teacher"s email that cannot be found', async () => {
+describe("throw invalid credentials when a teacher's email cannot be found or teacher is inactive", () => {
+    it("should throw invalid credentials when a teacher's email cannot be found or teacher is inactive", async () => {
         mockPool.query.mockResolvedValue({
             rows: [
 
@@ -253,42 +247,24 @@ describe('return undefined when a teacher"s email cannot be found', () => {
         });
 
         const password = 'terrycrews';
-        const email = 'jack@gmail.com';
+        const identifier = 'jack@gmail.com';
+        const role = 'teacher';
+        const column = 'email';
 
-        const result = await authService.loginTeacher(email, password);
-
-        expect(result).toBeUndefined();
-
-        expect(mockPool.query).toHaveBeenCalledTimes(1);
-
-        expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE email = $1 and role = 'teacher' and status = 'active'`, [email]);
-    });
-});
-
-
-describe('return undefined when a teacher is inactive', () => {
-    it('should return undefined for a teacher that is inactive', async () => {
-        mockPool.query.mockResolvedValue({
-            rows: [
-
-            ]
+        await expect(authService.login(role, identifier, password)).rejects.toMatchObject({
+            message: "Invalid credentials",
+            status: 401
         });
 
-        const password = 'terrycrews';
-        const email = 'jack@gmail.com';
-
-        const result = await authService.loginTeacher(email, password);
-
-        expect(result).toBeUndefined();
-
         expect(mockPool.query).toHaveBeenCalledTimes(1);
 
-        expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE email = $1 and role = 'teacher' and status = 'active'`, [email]);
+        expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE ${column} = $1 AND role = $2 AND status = 'active'`,
+            [identifier, role]);
     });
 });
 
-describe('throw an error when teacher uses wrong password', () => {
-    it('should throw an error when a teacher uses wrong password', async () => {
+describe("should throw invalid credentials when a teacher uses the wrong password", () => {
+    it("should throw invalid credentials when a teacher uses the wrong password", async () => {
         mockPool.query.mockResolvedValue({
             rows: [
                 {
@@ -299,15 +275,21 @@ describe('throw an error when teacher uses wrong password', () => {
         });
 
         const password = 'terrycrews';
-        const email = 'jack@gmail.com';
+        const identifier = 'jack@gmail.com';
+        const role = 'teacher';
+        const column = 'email'; const email = 'jack@gmail.com';
 
         bcrypt.compare.mockResolvedValue(false);
 
-        await expect(authService.loginTeacher(email, password)).rejects.toThrow('Invalid credentials');
+        await expect(authService.login(role, identifier, password)).rejects.toMatchObject({
+            message: "Invalid credentials",
+            status: 401
+        });
 
         expect(mockPool.query).toHaveBeenCalledTimes(1);
 
-        expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE email = $1 and role = 'teacher' and status = 'active'`, [email]);
+        expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE ${column} = $1 AND role = $2 AND status = 'active'`,
+            [identifier, role]);
     });
 });
 
@@ -342,8 +324,8 @@ describe('when login is successful, the service returns the admin"s details', ()
     });
 });
 
-describe('return undefined when an admin"s email cannot be found', () => {
-    it('should return undefined for an admin"s email that cannot be found', async () => {
+describe("throw invalid credentials when an admin's email cannot be found or admin is inactive", () => {
+    it("should throw invalid credentials when an admin's email cannot be found or admin is inactive", async () => {
         mockPool.query.mockResolvedValue({
             rows: [
 
@@ -353,39 +335,19 @@ describe('return undefined when an admin"s email cannot be found', () => {
         const password = 'terrycrews';
         const email = 'jack@gmail.com';
 
-        const result = await authService.loginAdmin(email, password);
-
-        expect(result).toBeUndefined();
-
-        expect(mockPool.query).toHaveBeenCalledTimes(1);
-
-        expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE email = $1 and role = 'admin' and status = 'active'`, [email]);
-    });
-});
-
-describe('return undefined when an admin is inactive', () => {
-    it('should return undefined for an admin that is inactive', async () => {
-        mockPool.query.mockResolvedValue({
-            rows: [
-
-            ]
+        await expect(authService.loginAdmin(email, password)).rejects.toMatchObject({
+            message: "Invalid credentials",
+            status: 401
         });
 
-        const password = 'terrycrews';
-        const email = 'jack@gmail.com';
-
-        const result = await authService.loginAdmin(email, password);
-
-        expect(result).toBeUndefined();
-
         expect(mockPool.query).toHaveBeenCalledTimes(1);
 
         expect(mockPool.query).toHaveBeenCalledWith(`SELECT * FROM "user" WHERE email = $1 and role = 'admin' and status = 'active'`, [email]);
     });
 });
 
-describe('throw an error when admin uses wrong password', () => {
-    it('should throw an error when a admin uses wrong password', async () => {
+describe("should throw invalid credentials when an admin uses the wrong password", () => {
+    it("should throw invalid credentials when an admin uses the wrong password", async () => {
         mockPool.query.mockResolvedValue({
             rows: [
                 {

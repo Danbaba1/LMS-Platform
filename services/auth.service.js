@@ -2,6 +2,7 @@ import { pool } from '../db/db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import { CustomError } from '../errors/customError.js';
 dotenv.config();
 
 export class AuthService {
@@ -9,101 +10,89 @@ export class AuthService {
         this.pool = dbPool;
     }
 
-    async registerStudent(username, email, password) {
+    async #createUserRecord({ username = null, email, password, role, client = this.pool }) {
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = await this.pool.query('INSERT INTO "user" (username, email, password_hash, role, status) VALUES ($1, $2, $3, $4, $5) RETURNING username, email, role, status', [username, email, hashedPassword, 'student', 'active']);
 
-        return newUser.rows[0];
-    }
-
-    async registerTeacher(email, password) {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = await this.pool.query('INSERT INTO "user" (email, password_hash, role, status) VALUES ($1, $2, $3, $4) RETURNING email, role, status', [email, hashedPassword, 'teacher', 'active']);
-
-        return newUser.rows[0];
-    }
-
-    async loginStudent(username, password) {
-        const user = await this.pool.query(`SELECT * FROM "user" WHERE username = $1 and role = 'student' and status = 'active'`, [username]);
-
-        if (user.rows.length === 0) {
-            return undefined;
-        }
-
-        const result = await bcrypt.compare(password, user.rows[0].password_hash);
-
-        if (result) {
-            const token = jwt.sign(
-                {
-                    userId: user.rows[0].id, role: user.rows[0].role
-                },
-                process.env.JWT_SECRET,
-                { expiresIn: process.env.JWT_EXPIRY_TIME }
+        try {
+            const newUser = await client.query(
+                'INSERT INTO "user" (username, email, password_hash, role, status) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+                [username, email, hashedPassword, role, 'active']
             );
-            return {
-                username: user.rows[0].username,
-                role: user.rows[0].role,
-                status: user.rows[0].status,
-                token
+            return newUser.rows[0];
+        } catch (err) {
+            if (err.code === '23505') {
+                throw new CustomError('Email or username already in use', 409);
             }
-        } else {
-            throw new Error('Invalid credentials');
+            throw err;
         }
     }
 
-    async loginTeacher(email, password) {
-        const user = await this.pool.query(`SELECT * FROM "user" WHERE email = $1 and role = 'teacher' and status = 'active'`, [email]);
-
-        if (user.rows.length === 0) {
-            return undefined;
-        }
-
-        const result = await bcrypt.compare(password, user.rows[0].password_hash);
-
-        if (!result) {
-            throw new Error('Invalid credentials');
-        } else {
-            const token = jwt.sign(
-                {
-                    userId: user.rows[0].id, role: user.rows[0].role
-                },
-                process.env.JWT_SECRET,
-                { expiresIn: process.env.JWT_EXPIRY_TIME }
-            );
-            return {
-                email: user.rows[0].email,
-                role: user.rows[0].role,
-                status: user.rows[0].status,
-                token
-            }
-        }
+    async registerStudent(student) {
+        return this.#createUserRecord({ username: student.username, email: student.email, password: student.password, role: 'student' });
     }
+
+    async registerStudentTx(student) {
+        return this.#createUserRecord({ username: student.username, email: student.email, password: student.password, role: 'student', client: student.client });
+    }
+
+    async registerTeacher(teacher) {
+        return this.#createUserRecord({ email: teacher.email, password: teacher.password, role: 'teacher' });
+    }
+
+    async #authenticate(query, params, password) {
+        const user = await this.pool.query(query, params);
+        const userExists = user.rows.length > 0;
+
+        const dummyHash = '$2b$10$CwTycUXWue0Thq9StjUM0uJ8v9K6cM1kQd6XqM6XW5Y8kQd6XqM6X';
+        const hashToCompare = userExists ? user.rows[0].password_hash : dummyHash;
+
+        const result = await bcrypt.compare(password, hashToCompare);
+
+        if (!userExists || !result) {
+            throw new CustomError('Invalid credentials', 401);
+        }
+
+        return user.rows[0];
+    }
+
+    async login(role, identifier, password) {
+        const columnByRole = {
+            student: 'username',
+            teacher: 'email'
+        };
+
+        const column = columnByRole[role]; // always 'username' or 'email' — nothing else is possible
+
+        const user = await this.#authenticate(
+            `SELECT * FROM "user" WHERE ${column} = $1 AND role = $2 AND status = 'active'`,
+            [identifier, role],
+            password
+        );
+
+
+        const token = jwt.sign(
+            { userId: user.id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRY_TIME }
+        );
+
+        return { [column]: user[column], role: user.role, status: user.status, token };
+    }
+
 
     async loginAdmin(email, password) {
-        const user = await this.pool.query(`SELECT * FROM "user" WHERE email = $1 and role = 'admin' and status = 'active'`, [email]);
+        const row = await this.#authenticate(
+            `SELECT * FROM "user" WHERE email = $1 and role = 'admin' and status = 'active'`,
+            [email],
+            password
+        );
 
-        if (user.rows.length === 0) {
-            return undefined;
-        }
+        const token = jwt.sign(
+            { userId: row.id, role: row.role },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRY_TIME }
+        );
 
-        const result = await bcrypt.compare(password, user.rows[0].password_hash);
-
-        if (!result) {
-            throw new Error('Invalid credentials');
-        } else {
-            const token = jwt.sign(
-                {
-                    userId: user.rows[0].id, role: user.rows[0].role
-                },
-                process.env.JWT_SECRET,
-                { expiresIn: process.env.JWT_EXPIRY_TIME }
-            );
-            return {
-                email: user.rows[0].email,
-                role: user.rows[0].role,
-                status: user.rows[0].status,
-                token
-            }
-        }
+        return { email: row.email, role: row.role, status: row.status, token };
     }
 }
