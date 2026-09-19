@@ -1,10 +1,8 @@
 import { pool } from '../db/db.js';
-import { AuthService } from './auth.service.js';
-
+import { createStudentUserAndProfile } from './studentRegistration.js';
 export class StudentService {
-    constructor(dbPool = pool, authService = new AuthService(dbPool)) {
+    constructor(dbPool = pool) {
         this.pool = dbPool;
-        this.authService = authService;
     }
 
     async getStudents() {
@@ -24,15 +22,10 @@ export class StudentService {
         try {
             await client.query('BEGIN');
 
-            const newUser = await this.authService.registerStudentTx({ username, email, password, client });
-
-            const newStudent = await client.query(
-                'INSERT INTO student (name, user_id) VALUES ($1, $2) RETURNING *',
-                [name, newUser.id]
-            );
+            const newStudent = await createStudentUserAndProfile(client, { name, username, email, password });
 
             await client.query('COMMIT');
-            return newStudent.rows[0];
+            return newStudent;
         } catch (err) {
             await client.query('ROLLBACK');
             throw err;
@@ -46,8 +39,12 @@ export class StudentService {
         return result.rows[0];
     }
 
-    async deleteStudent(id) {
-        const result = await this.pool.query('DELETE FROM student WHERE id = $1 RETURNING *', [id]);
+    async deactivateStudent(id) {
+        const result = await this.pool.query(`WITH updated_user AS (
+    UPDATE "user" SET status = 'inactive' WHERE id = (SELECT user_id FROM student WHERE id = $1) RETURNING id
+)
+SELECT student.* FROM student
+JOIN updated_user ON student.user_id = updated_user.id;`, [id]);
 
         return result.rows[0];
     }

@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import jwt from 'jsonwebtoken';
+import { CustomError } from '../errors/customError.js';
 
 jest.unstable_mockModule('bcrypt', () => ({
     default: {
@@ -12,8 +13,14 @@ const { default: bcrypt } = await import('bcrypt');
 
 const { AuthService } = await import('../services/auth.service.js');
 
+const mockClient = {
+    query: jest.fn(),
+    release: jest.fn()
+};
+
 const mockPool = {
-    query: jest.fn()
+    query: jest.fn(),
+    connect: jest.fn().mockResolvedValue(mockClient)
 };
 
 let authService;
@@ -26,7 +33,7 @@ beforeEach(() => {
 
 describe('When registration succeeds, the service returns the newly created student and sends the hashed password to the database.', () => {
     it('should create a new student when registration succeeds', async () => {
-        mockPool.query.mockResolvedValue({
+        mockClient.query.mockResolvedValue({
             rows: [
                 {
                     "id": 1,
@@ -40,13 +47,19 @@ describe('When registration succeeds, the service returns the newly created stud
 
         const password = 'terrycrews';
         const username = 'Jack';
+        const name = 'Jaco';
         const email = 'jack@gmail.com';
 
-        const result = await authService.registerStudent({ username, email, password });
+        const result = await authService.registerStudent({ name, username, email, password });
 
-        expect(mockPool.query).toHaveBeenCalledWith(
+        expect(mockClient.query).toHaveBeenCalledWith(
             'INSERT INTO "user" (username, email, password_hash, role, status) VALUES ($1, $2, $3, $4, $5) RETURNING id',
             [username, email, 'mocked_hashed_password', 'student', 'active']
+        );
+
+        expect(mockClient.query).toHaveBeenCalledWith(
+            'INSERT INTO student (name, user_id) VALUES ($1, $2) RETURNING *',
+            [name, 1]
         );
 
         expect(bcrypt.hash).toHaveBeenCalledWith(password, 10);
@@ -63,15 +76,16 @@ describe('When registration succeeds, the service returns the newly created stud
 
 describe('throw an error when a student tries to register with a username that already exists', () => {
     it('should throw an error when a student registers with a username that already exists', async () => {
-        const error = new Error('Duplicate email not allowed');
+        const error = new CustomError('Email or username already in use', 409);
         error.code = '23505';
-        mockPool.query.mockRejectedValue(error);
+        mockClient.query.mockRejectedValue(error);
 
         const password = 'teddycrews';
         const username = 'Jack';
+        const name = 'Jaco'
         const email = 'jason@gmail.com';
 
-        expect(authService.registerStudent({ username, email, password })).rejects.toMatchObject({
+        expect(authService.registerStudent({ name, username, email, password })).rejects.toMatchObject({
             message: 'Email or username already in use',
             status: 409
         });

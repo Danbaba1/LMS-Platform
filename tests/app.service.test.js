@@ -2,13 +2,18 @@ import { StudentService } from '../services/app.service.js';
 import { jest } from '@jest/globals';
 
 const mockPool = {
-    query: jest.fn()
+    query: jest.fn(),
+    connect: jest.fn()
 };
+
+const mockAuthService = {
+    registerStudentTx: jest.fn()
+}
 
 let studentService;
 
 beforeEach(() => {
-    studentService = new StudentService(mockPool);
+    studentService = new StudentService(mockPool, mockAuthService);
 
     jest.clearAllMocks();
 });
@@ -18,34 +23,9 @@ describe('it should return an array', () => {
         mockPool.query.mockResolvedValue({
             rows: [
                 {
-                    "id": 3,
-                    "name": "John Smith",
-                    "course": "Physics"
-                },
-                {
-                    "id": 4,
-                    "name": "John",
-                    "course": "Physics"
-                },
-                {
-                    "id": 5,
-                    "name": "John",
-                    "course": "Physics"
-                },
-                {
-                    "id": 6,
-                    "name": "John",
-                    "course": "Physics"
-                },
-                {
-                    "id": 7,
-                    "name": "John",
-                    "course": "Physics"
-                },
-                {
-                    "id": 8,
-                    "name": "Michael",
-                    "course": "History"
+                    "id": 1,
+                    "name": "Sharon",
+                    "userId": 1
                 }
             ]
         });
@@ -53,34 +33,9 @@ describe('it should return an array', () => {
         expect(result).toEqual(
             [
                 {
-                    "id": 3,
-                    "name": "John Smith",
-                    "course": "Physics"
-                },
-                {
-                    "id": 4,
-                    "name": "John",
-                    "course": "Physics"
-                },
-                {
-                    "id": 5,
-                    "name": "John",
-                    "course": "Physics"
-                },
-                {
-                    "id": 6,
-                    "name": "John",
-                    "course": "Physics"
-                },
-                {
-                    "id": 7,
-                    "name": "John",
-                    "course": "Physics"
-                },
-                {
-                    "id": 8,
-                    "name": "Michael",
-                    "course": "History"
+                    "id": 1,
+                    "name": "Sharon",
+                    "userId": 1
                 }
             ]
         );
@@ -245,30 +200,44 @@ describe('it should return undefined with a non-existing id', () => {
 
 describe('it should return the newly created student', () => {
     test('the newly created student should be returned', async () => {
-        mockPool.query.mockResolvedValue({
+        const mockClient = {
+            query: jest.fn(),
+            release: jest.fn()
+        }
+
+        mockPool.connect.mockResolvedValue(mockClient);
+
+        mockAuthService.registerStudentTx.mockResolvedValue({
+            "id": 1
+        });
+
+        mockClient.query.mockResolvedValue({
             rows: [
                 {
                     "id": 1,
-                    "name": "Jack Sow",
-                    "course": "Pics"
+                    "name": "John",
+                    "user_id": 1
                 }
             ]
         });
+
         const name = "John";
-        const course = "Physics";
-        const newStudent = await studentService.createStudent(name, course);
+        const username = 'Johwell34';
+        const email = "johnn@gmail.com";
+        const password = 'barcabous';
+        const newStudent = await studentService.createStudent(name, username, email, password);
         expect(newStudent).toEqual(
             {
                 "id": 1,
-                "name": "Jack Sow",
-                "course": "Pics"
+                "name": "John",
+                "user_id": 1
             }
         );
 
-        expect(mockPool.query).toHaveBeenCalledTimes(1);
+        expect(mockClient.query).toHaveBeenCalledTimes(4);
 
-        expect(mockPool.query).toHaveBeenCalledWith(
-            'INSERT INTO student (name, course) VALUES ($1, $2) RETURNING *', [name, course]
+        expect(mockClient.query).toHaveBeenCalledWith(
+            'INSERT INTO student (name, user_id) VALUES ($1, $2) RETURNING *', [name, 1]
         );
     });
 });
@@ -281,15 +250,15 @@ describe("it should return undefined when I try to update a student that doesn't
             ]
         });
         const id = 999;
-        const studentData = { name: "John" };
-        const updatedStudent = await studentService.updateStudent(studentData, id);
+        const name = "John";
+        const updatedStudent = await studentService.updateStudent(name, id);
         expect(updatedStudent).toBeUndefined();
 
         expect(mockPool.query).toHaveBeenCalledTimes(1);
 
         expect(mockPool.query).toHaveBeenCalledWith(
-            'UPDATE student SET name = COALESCE($1, name), course = COALESCE($2, course) WHERE id = $3 RETURNING *',
-            [studentData.name, studentData.course, id]
+            'UPDATE student SET name = $1 WHERE id = $2 RETURNING *',
+            [name, id]
         );
     });
 });
@@ -300,131 +269,77 @@ describe("it should return the updated student when I update an existing student
             rows: [
                 {
                     "id": 1,
-                    "name": "John",
-                    "course": "Physics"
+                    "name": "John"
                 }
             ]
         });
         const id = 1;
-        const studentData = { name: "John", course: "Physics" }
-        const updatedStudent = await studentService.updateStudent(studentData, id);
+        const name = "John";
+        const updatedStudent = await studentService.updateStudent(name, id);
         expect(updatedStudent).toEqual({
             "id": 1,
-            "name": "John",
-            "course": "Physics"
+            "name": "John"
         });
 
         expect(mockPool.query).toHaveBeenCalledTimes(1);
 
         expect(mockPool.query).toHaveBeenCalledWith(
-            'UPDATE student SET name = COALESCE($1, name), course = COALESCE($2, course) WHERE id = $3 RETURNING *',
-            [studentData.name, studentData.course, id]
+            'UPDATE student SET name = $1 WHERE id = $2 RETURNING *',
+            [name, id]
         );
     });
 });
 
-describe("it should return the updated student when I update only the name of an existing student", () => {
-    test('should return updated student when I update only the name of an existing student', async () => {
-        mockPool.query.mockResolvedValue({
-            rows: [
-                {
-                    "id": 1,
-                    "name": "John",
-                    "course": "Physics"
-                }
-            ]
-        });
-        const id = 1;
-        const studentData = { name: "John" }
-        const updatedStudent = await studentService.updateStudent(studentData, id);
-        expect(updatedStudent).toEqual({
-            "id": 1,
-            "name": "John",
-            "course": "Physics"
-        });
-
-        expect(mockPool.query).toHaveBeenCalledTimes(1);
-
-        expect(mockPool.query).toHaveBeenCalledWith(
-            'UPDATE student SET name = COALESCE($1, name), course = COALESCE($2, course) WHERE id = $3 RETURNING *',
-            [studentData.name, studentData.course, id]
-        );
-    });
-});
-
-describe("it should return the updated student when I update only the course of an existing student", () => {
-    test('should return updated student when I update only the course of an existing student', async () => {
-        mockPool.query.mockResolvedValue({
-            rows: [
-                {
-                    "id": 1,
-                    "name": "Jack",
-                    "course": "Physics"
-                }
-            ]
-        });
-        const id = 1;
-        const studentData = { course: "Physics" }
-        const updatedStudent = await studentService.updateStudent(studentData, id);
-        expect(updatedStudent).toEqual({
-            "id": 1,
-            "name": "Jack",
-            "course": "Physics"
-        });
-
-        expect(mockPool.query).toHaveBeenCalledTimes(1);
-
-        expect(mockPool.query).toHaveBeenCalledWith(
-            'UPDATE student SET name = COALESCE($1, name), course = COALESCE($2, course) WHERE id = $3 RETURNING *',
-            [studentData.name, studentData.course, id]
-        );
-    });
-});
-
-describe('it should return undefined when deleting a non-existent student', () => {
-    test('undefined should be returned when deleting a non-existent student', async () => {
+describe('it should return undefined when deactivating a non-existent student', () => {
+    test('undefined should be returned when deactivating a non-existent student', async () => {
         mockPool.query.mockResolvedValue({
             rows: [
 
             ]
         });
         const id = 999;
-        const deletedStudent = await studentService.deleteStudent(id);
-        expect(deletedStudent).toBeUndefined();
+        const deactivatedStudent = await studentService.deactivateStudent(id);
+        expect(deactivatedStudent).toBeUndefined();
 
         expect(mockPool.query).toHaveBeenCalledTimes(1);
 
         expect(mockPool.query).toHaveBeenCalledWith(
-            'DELETE FROM student WHERE id = $1 RETURNING *',
+            `WITH updated_user AS (
+    UPDATE "user" SET status = 'inactive' WHERE id = (SELECT user_id FROM student WHERE id = $1) RETURNING id
+)
+SELECT student.* FROM student
+JOIN updated_user ON student.user_id = updated_user.id;`,
             [id]
         );
     });
 });
 
-describe('it should delete an existing student and return the deleted student', () => {
-    test('deleted student should be returned when deleting an existing student', async () => {
+describe('it should deactivate an existing student and return the deactivated student', () => {
+    test('deactivated student should be returned when deactivating an existing student', async () => {
         mockPool.query.mockResolvedValue({
             rows: [
                 {
                     "id": 1,
-                    "name": "Jack Sow",
-                    "course": "Pics"
+                    "name": "Jack Sow"
                 }
             ]
         })
         const id = 1;
-        const deletedStudent = await studentService.deleteStudent(id);
+        const deactivatedStudent = await studentService.deactivateStudent(id);
 
-        expect(deletedStudent).toEqual({
+        expect(deactivatedStudent).toEqual({
             "id": 1,
-            "name": "Jack Sow",
-            "course": "Pics"
+            "name": "Jack Sow"
         });
 
         expect(mockPool.query).toHaveBeenCalledTimes(1);
 
         expect(mockPool.query).toHaveBeenCalledWith(
-            'DELETE FROM student WHERE id = $1 RETURNING *',
+            `WITH updated_user AS (
+    UPDATE "user" SET status = 'inactive' WHERE id = (SELECT user_id FROM student WHERE id = $1) RETURNING id
+)
+SELECT student.* FROM student
+JOIN updated_user ON student.user_id = updated_user.id;`,
             [id]
         );
     });

@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import { CustomError } from '../errors/customError.js';
+import { createStudentUserAndProfile } from './studentRegistration.js';
 dotenv.config();
 
 export class AuthService {
@@ -28,11 +29,20 @@ export class AuthService {
     }
 
     async registerStudent(student) {
-        return this.#createUserRecord({ username: student.username, email: student.email, password: student.password, role: 'student' });
-    }
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
 
-    async registerStudentTx(student) {
-        return this.#createUserRecord({ username: student.username, email: student.email, password: student.password, role: 'student', client: student.client });
+            const newStudent = await createStudentUserAndProfile(client, { name: student.name, username: student.username, email: student.email, password: student.password });
+
+            await client.query('COMMIT');
+            return newStudent;
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
     }
 
     async registerTeacher(teacher) {
@@ -56,12 +66,13 @@ export class AuthService {
     }
 
     async login(role, identifier, password) {
+        // role must be 'student' or 'teacher', enforced by the calling route — do not call this with unvalidated user-supplied role values
         const columnByRole = {
             student: 'username',
             teacher: 'email'
         };
 
-        const column = columnByRole[role]; // always 'username' or 'email' — nothing else is possible
+        const column = columnByRole[role];
 
         const user = await this.#authenticate(
             `SELECT * FROM "user" WHERE ${column} = $1 AND role = $2 AND status = 'active'`,
