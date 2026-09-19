@@ -22,7 +22,7 @@ describe('throw error when request does not contain authorization header', () =>
     it('should throw error for missing authorization header in request', () => {
         authMiddleware(req, res, next);
 
-        expect(next).toHaveBeenCalledWith(new Error('No token provided'));
+        expect(next.mock.calls[0][0].message).toBe('No token provided');
     });
 });
 
@@ -46,5 +46,19 @@ describe('a valid JWT is successfully accepted and next is called', () => {
         expect(req.user).toMatchObject(user);
 
         expect(next).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('an invalid JWT is rejected', () => {
+    it('should call next with an error for an invalid JWT', () => {
+        req = {
+            headers: {
+                authorization: `Bearer 'hjjadfndkndo'`
+            }
+        }
+
+        authMiddleware(req, res, next);
+
+        expect(next.mock.calls[0][0].message).toBe('jwt malformed');
     });
 });
